@@ -5,11 +5,10 @@ const File = require("../models/File");
 const crypto = require("crypto");
 const path = require("path");
 const FileShare = require("../models/FileShare");
-
+const fs = require("fs");
 
 // 📁 storage config
 const storage = multer.diskStorage({
-
   destination: (req, file, cb) => {
     cb(null, "uploads/");
   },
@@ -23,16 +22,20 @@ const upload = multer({ storage });
 // ✅ UPLOAD FILE
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
-
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ message: "UserId missing" });
+    }
+
     const newFile = await File.create({
+      userId,
       filename: req.file.filename,
-      originalname: req.file.originalname,
-      path: req.file.path,
-      size: req.file.size
+      filepath: req.file.path,
+      uploadedAt: Date.now()
     });
 
     res.json({
@@ -45,9 +48,6 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
 
 // ✅ GET USER FILES
 router.get("/:userId", async (req, res) => {
@@ -63,19 +63,16 @@ router.get("/:userId", async (req, res) => {
 router.post("/generate-link", async (req, res) => {
   try {
     const { fileId } = req.body;
+    if (!fileId) return res.status(400).json({ message: "FileId required" });
 
     const token = crypto.randomBytes(20).toString("hex");
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
 
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-    await FileShare.create({
-      fileId,
-      token,
-      expiresAt
-    });
+    await FileShare.create({ fileId, token, expiresAt });
 
     res.json({
-      link: `${process.env.BASE_URL}/api/files/share/${token}`    });
+      link: `${process.env.BASE_URL}/api/files/share/${token}`
+    });
 
   } catch (err) {
     console.error(err);
@@ -87,58 +84,36 @@ router.post("/generate-link", async (req, res) => {
 router.get("/share/:token", async (req, res) => {
   try {
     const { token } = req.params;
+    const share = await FileShare.findOne({ token }).sort({ createdAt: -1 });
 
-const share = await FileShare.findOne({ token }).sort({ createdAt: -1 });
-    if (!share) {
-      return res.status(404).send("Invalid link");
+    if (!share || share.expiresAt < new Date()) {
+      return res.status(400).send("Link expired or invalid");
     }
-
-  if (!share || share.expiresAt < new Date()) {
-  return res.status(400).send("Link expired or invalid");
-}
 
     const file = await File.findById(share.fileId);
-
-    if (!file) {
-      return res.status(404).send("File not found");
-    }
+    if (!file) return res.status(404).send("File not found");
 
     res.sendFile(path.resolve(file.filepath));
-
   } catch (err) {
     console.error(err);
     res.status(500).send("Server error");
   }
 });
 
-
-const fs = require("fs");
-
 // ✅ DELETE FILE
 router.delete("/delete/:id", async (req, res) => {
   try {
     const file = await File.findById(req.params.id);
+    if (!file) return res.status(404).json({ message: "File not found" });
 
-    if (!file) {
-      return res.status(404).json({ message: "File not found" });
-    }
-
-    // delete file from folder
-    if (fs.existsSync(file.filepath)) {
-      fs.unlinkSync(file.filepath);
-    }
-
-    // delete from DB
+    if (fs.existsSync(file.filepath)) fs.unlinkSync(file.filepath);
     await File.findByIdAndDelete(req.params.id);
 
     res.json({ message: "File deleted successfully ✅" });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error deleting file" });
   }
 });
-
-
 
 module.exports = router;
