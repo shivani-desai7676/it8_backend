@@ -22,14 +22,9 @@ const upload = multer({ storage });
 // ✅ UPLOAD FILE
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
-    }
-
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
     const { userId } = req.body;
-    if (!userId) {
-      return res.status(400).json({ message: "UserId missing" });
-    }
+    if (!userId) return res.status(400).json({ message: "UserId missing" });
 
     const newFile = await File.create({
       userId,
@@ -38,11 +33,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       uploadedAt: Date.now()
     });
 
-    res.json({
-      message: "File uploaded successfully",
-      file: newFile
-    });
-
+    res.json({ message: "File uploaded successfully", file: newFile });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -70,10 +61,10 @@ router.post("/generate-link", async (req, res) => {
 
     await FileShare.create({ fileId, token, expiresAt });
 
+    // ✅ Use BASE_URL
     res.json({
       link: `${process.env.BASE_URL}/api/files/share/${token}`
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error generating link" });
