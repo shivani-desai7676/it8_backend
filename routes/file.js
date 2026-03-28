@@ -66,14 +66,17 @@ router.post("/generate-link", async (req, res) => {
 
     await FileShare.create({ fileId, token, expiresAt });
 
+    // ✅ Fix double slash
+    const baseUrl = process.env.BASE_URL.replace(/\/+$/, ""); // remove trailing slashes
     res.json({
-      link: `${process.env.BASE_URL}/api/files/share/${token}`
+      link: `${baseUrl}/api/files/share/${token}`
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Error generating link" });
   }
 });
+
 
 // ✅ OPEN FILE USING SHARE LINK
 router.get("/share/:token", async (req, res) => {
