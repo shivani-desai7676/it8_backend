@@ -10,7 +10,12 @@ const fs = require("fs");
 // 📁 storage config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/");
+    // Use absolute path for uploads folder
+    const uploadPath = path.join(__dirname, "../uploads");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true }); // ensure folder exists
+    }
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + "-" + file.originalname);
@@ -29,7 +34,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     const newFile = await File.create({
       userId,
       filename: req.file.filename,
-      filepath: req.file.path,
+      filepath: req.file.path, // absolute path
       uploadedAt: Date.now()
     });
 
@@ -61,7 +66,6 @@ router.post("/generate-link", async (req, res) => {
 
     await FileShare.create({ fileId, token, expiresAt });
 
-    // ✅ Use BASE_URL
     res.json({
       link: `${process.env.BASE_URL}/api/files/share/${token}`
     });
@@ -84,7 +88,7 @@ router.get("/share/:token", async (req, res) => {
     const file = await File.findById(share.fileId);
     if (!file) return res.status(404).send("File not found");
 
-    res.sendFile(path.resolve(file.filepath));
+    res.sendFile(path.resolve(file.filepath)); // send using absolute path
   } catch (err) {
     console.error(err);
     res.status(500).send("Server error");
