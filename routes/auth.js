@@ -90,15 +90,12 @@ router.post("/verify-login-otp", async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    // Create JWT
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1d" });
 
-    // Clear OTP
     user.otp = null;
     user.otpExpiry = null;
     await user.save();
 
-    // Record login activity
     await UserActivity.create({
       userId: user._id,
       loginTime: new Date(),
@@ -113,7 +110,7 @@ router.post("/verify-login-otp", async (req, res) => {
       userId: user._id
     });
   } catch (err) {
-    console.error("Error in verify-login-otp:", err);
+    console.error("verify-login-otp error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -124,7 +121,6 @@ router.post("/logout", async (req, res) => {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ message: "userId is required" });
 
-    // Mark all active sessions as offline
     await UserActivity.updateMany(
       { userId, isOnline: true },
       { $set: { isOnline: false, logoutTime: new Date() } }
@@ -137,7 +133,7 @@ router.post("/logout", async (req, res) => {
   }
 });
 
-// -------------------- GET LOGIN/LOGOUT HISTORY --------------------
+// -------------------- ACTIVITY HISTORY --------------------
 router.get("/activity/history", async (req, res) => {
   try {
     const activity = await UserActivity.find()
@@ -161,7 +157,7 @@ router.get("/activity/history", async (req, res) => {
   }
 });
 
-// -------------------- GET CURRENT STATUS --------------------
+// -------------------- CURRENT STATUS --------------------
 router.get("/activity/status", async (req, res) => {
   try {
     const users = await UserActivity.aggregate([

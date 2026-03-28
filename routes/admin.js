@@ -4,7 +4,7 @@ const { sendAdminOtp, verifyAdminOtp } = require("../controllers/adminController
 const User = require("../models/User");
 const UserActivity = require("../models/UserActivity");
 
-// -------------------- ADMIN OTP ROUTES --------------------
+// -------------------- ADMIN OTP --------------------
 router.post("/send-otp", sendAdminOtp);
 router.post("/verify-otp", verifyAdminOtp);
 
@@ -12,7 +12,6 @@ router.post("/verify-otp", verifyAdminOtp);
 router.get("/users", async (req, res) => {
   try {
     const users = await User.find({}).lean();
-
     const usersWithStatus = await Promise.all(
       users.map(async (user) => {
         const latestActivity = await UserActivity.findOne({ userId: user._id })
@@ -23,7 +22,7 @@ router.get("/users", async (req, res) => {
           ...user,
           isOnline: latestActivity ? latestActivity.isOnline : false,
           lastLogin: latestActivity ? latestActivity.loginTime : null,
-          lastLogout: latestActivity ? latestActivity.logoutTime : null,
+          lastLogout: latestActivity ? latestActivity.logoutTime : null
         };
       })
     );
@@ -35,8 +34,7 @@ router.get("/users", async (req, res) => {
   }
 });
 
-
-// ✅ -------------------- ACTIVITY HISTORY --------------------
+// -------------------- ACTIVITY HISTORY --------------------
 router.get("/activity/history", async (req, res) => {
   try {
     const activity = await UserActivity.find()
@@ -60,8 +58,7 @@ router.get("/activity/history", async (req, res) => {
   }
 });
 
-
-// ✅ -------------------- CURRENT STATUS --------------------
+// -------------------- CURRENT STATUS --------------------
 router.get("/activity/status", async (req, res) => {
   try {
     const users = await UserActivity.aggregate([
@@ -76,10 +73,7 @@ router.get("/activity/status", async (req, res) => {
       }
     ]);
 
-    const result = await User.populate(users, {
-      path: "_id",
-      select: "name email"
-    });
+    const result = await User.populate(users, { path: "_id", select: "name email" });
 
     const formatted = result.map(u => ({
       userId: u._id._id,
@@ -96,6 +90,5 @@ router.get("/activity/status", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
 
 module.exports = router;
